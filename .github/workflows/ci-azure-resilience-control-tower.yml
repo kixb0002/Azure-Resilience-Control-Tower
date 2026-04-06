@@ -66,6 +66,8 @@ jobs:
   application-security:
     name: Python quality and dependency security
     runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: .
     defaults:
       run:
         shell: bash
