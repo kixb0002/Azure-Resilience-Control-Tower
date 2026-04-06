@@ -8,6 +8,8 @@ Enterprise-style sample project combining:
 - GitHub Actions for CI/CD and DevSecOps controls
 - Python test code with Docker-based delivery
 
+CI/CD validation test
+
 ## Architecture
 
 ```mermaid
