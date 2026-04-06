@@ -23,11 +23,6 @@ variable "environment_name" {
   }
 }
 
-variable "location" {
-  type    = string
-  default = "westeurope"
-}
-
 variable "resource_group_name" {
   type        = string
   description = "Existing Azure resource group name where resources will be deployed."
