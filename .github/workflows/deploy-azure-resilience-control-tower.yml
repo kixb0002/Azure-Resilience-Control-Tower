@@ -1,0 +1,126 @@
+name: Deploy Azure Resilience Control Tower
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "azure-resilience-control-tower/**"
+      - ".github/workflows/deploy-azure-resilience-control-tower.yml"
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-azure-resilience-control-tower-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+        working-directory: azure-resilience-control-tower/infra
+    env:
+      ARM_USE_OIDC: true
+      ARM_USE_AZUREAD: true
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_project_name: ${{ vars.PROJECT_NAME }}
+      TF_VAR_environment_name: ${{ vars.ENVIRONMENT_NAME }}
+      TF_VAR_resource_group_name: ${{ vars.RESOURCE_GROUP_NAME }}
+      TF_VAR_location: ${{ vars.AZURE_LOCATION }}
+      TF_VAR_container_repository: webapp
+      TF_VAR_container_image_tag: bootstrap
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.8.5
+
+      - name: Terraform init
+        run: |
+          terraform init \
+            -input=false \
+            -backend-config="resource_group_name=${{ vars.TFSTATE_RESOURCE_GROUP_NAME }}" \
+            -backend-config="storage_account_name=${{ vars.TFSTATE_STORAGE_ACCOUNT_NAME }}" \
+            -backend-config="container_name=${{ vars.TFSTATE_CONTAINER_NAME }}" \
+            -backend-config="key=${{ vars.TFSTATE_KEY }}"
+
+      - name: Terraform apply bootstrap infrastructure
+        run: terraform apply -auto-approve -input=false
+
+      - name: Get ACR outputs
+        id: terraform_outputs
+        run: |
+          echo "acr_name=$(terraform output -raw acr_name)" >> "$GITHUB_OUTPUT"
+          echo "acr_login_server=$(terraform output -raw acr_login_server)" >> "$GITHUB_OUTPUT"
+
+      - name: Build container image
+        working-directory: azure-resilience-control-tower/app
+        run: |
+          docker build -t "${{ steps.terraform_outputs.outputs.acr_login_server }}/webapp:${{ github.sha }}" .
+
+      - name: Log in to ACR
+        run: az acr login --name "${{ steps.terraform_outputs.outputs.acr_name }}"
+
+      - name: Push container image
+        run: docker push "${{ steps.terraform_outputs.outputs.acr_login_server }}/webapp:${{ github.sha }}"
+
+      - name: Generate SBOM with Trivy
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: "${{ steps.terraform_outputs.outputs.acr_login_server }}/webapp:${{ github.sha }}"
+          format: cyclonedx
+          output: trivy-sbom.cdx.json
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: azure-resilience-control-tower-sbom-${{ github.sha }}
+          path: azure-resilience-control-tower/infra/trivy-sbom.cdx.json
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.7.0
+
+      - name: Sign container image with Cosign
+        env:
+          COSIGN_EXPERIMENTAL: "true"
+        run: |
+          cosign sign --yes "${{ steps.terraform_outputs.outputs.acr_login_server }}/webapp:${{ github.sha }}"
+
+      - name: Verify Cosign signature
+        run: |
+          cosign verify \
+            --certificate-identity "${{ github.server_url }}/${{ github.repository }}/.github/workflows/deploy-azure-resilience-control-tower.yml@${{ github.ref }}" \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            "${{ steps.terraform_outputs.outputs.acr_login_server }}/webapp:${{ github.sha }}"
+
+      - name: Attest SBOM to container image
+        run: |
+          cosign attest --yes \
+            --predicate trivy-sbom.cdx.json \
+            --type cyclonedx \
+            "${{ steps.terraform_outputs.outputs.acr_login_server }}/webapp:${{ github.sha }}"
+
+      - name: Re-apply infrastructure with final image tag
+        env:
+          TF_VAR_container_image_tag: ${{ github.sha }}
+        run: terraform apply -auto-approve -input=false

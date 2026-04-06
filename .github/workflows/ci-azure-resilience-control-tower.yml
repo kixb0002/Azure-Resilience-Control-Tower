@@ -1,0 +1,172 @@
+name: CI - Azure Resilience Control Tower
+
+on:
+  pull_request:
+    paths:
+      - "azure-resilience-control-tower/**"
+      - ".github/workflows/ci-azure-resilience-control-tower.yml"
+      - ".github/workflows/codeql-azure-resilience-control-tower.yml"
+      - ".github/workflows/terraform-plan-azure-resilience-control-tower.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "azure-resilience-control-tower/**"
+      - ".github/workflows/ci-azure-resilience-control-tower.yml"
+      - ".github/workflows/codeql-azure-resilience-control-tower.yml"
+      - ".github/workflows/terraform-plan-azure-resilience-control-tower.yml"
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: ci-azure-resilience-control-tower-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  terraform-quality:
+    name: Terraform quality and IaC security
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: azure-resilience-control-tower/infra
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.8.5
+
+      - name: Terraform format check
+        run: terraform fmt -check -recursive
+
+      - name: Terraform init (no backend)
+        run: terraform init -backend=false -input=false
+
+      - name: Terraform validate
+        run: terraform validate -no-color
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v4
+
+      - name: TFLint
+        run: |
+          tflint --init
+          tflint --format compact
+
+      - name: tfsec
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          working_directory: azure-resilience-control-tower/infra
+
+  application-security:
+    name: Python quality and dependency security
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: azure-resilience-control-tower/app
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Ruff
+        run: ruff check .
+
+      - name: Pytest
+        run: pytest
+
+      - name: Bandit
+        run: bandit -r src
+
+      - name: pip-audit
+        run: pip-audit -r requirements.txt
+
+  repository-security:
+    name: Repository secret and config scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Trivy filesystem scan
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: table
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+
+      - name: Trivy filesystem SARIF
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: sarif
+          output: trivy-fs.sarif
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+
+      - name: Upload repository SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-fs.sarif
+          category: trivy-repository
+
+  container-verification:
+    name: Container build verification
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: azure-resilience-control-tower/app
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build container image
+        run: docker build -t azure-resilience-control-tower:test .
+
+      - name: Trivy image scan
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: azure-resilience-control-tower:test
+          format: table
+          scanners: vuln,secret
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+
+      - name: Trivy image SARIF
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: azure-resilience-control-tower:test
+          format: sarif
+          output: trivy-image.sarif
+          scanners: vuln,secret
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+
+      - name: Upload image SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-image.sarif
+          category: trivy-container

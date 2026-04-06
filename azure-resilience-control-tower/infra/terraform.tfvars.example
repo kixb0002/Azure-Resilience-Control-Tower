@@ -1,0 +1,6 @@
+project_name        = "resilience-control"
+environment_name    = "dev"
+resource_group_name = "RG-Taoufik-Mellah"
+location            = "westeurope"
+container_repository = "webapp"
+container_image_tag  = "latest"
