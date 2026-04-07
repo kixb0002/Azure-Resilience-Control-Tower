@@ -105,27 +105,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Trivy filesystem scan
-        uses: aquasecurity/trivy-action@v0.33.1
+      - name: Setup Trivy
+        uses: aquasecurity/setup-trivy@v0.2.4
         with:
-          scan-type: fs
-          scan-ref: .
-          format: table
-          scanners: vuln,secret,misconfig
-          severity: HIGH,CRITICAL
-          exit-code: "1"
-          ignore-unfixed: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Trivy filesystem scan
+        run: |
+          trivy fs . \
+            --scanners vuln,secret,misconfig \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --format table \
+            --exit-code 1
 
       - name: Trivy filesystem SARIF
-        uses: aquasecurity/trivy-action@v0.33.1
-        with:
-          scan-type: fs
-          scan-ref: .
-          format: sarif
-          output: trivy-fs.sarif
-          scanners: vuln,secret,misconfig
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
+        run: |
+          trivy fs . \
+            --scanners vuln,secret,misconfig \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --format sarif \
+            --output trivy-fs.sarif
 
       - name: Upload repository SARIF
         uses: github/codeql-action/upload-sarif@v3
@@ -144,28 +145,31 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Trivy
+        uses: aquasecurity/setup-trivy@v0.2.4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build container image
         run: docker build -t azure-resilience-control-tower:test .
 
       - name: Trivy image scan
-        uses: aquasecurity/trivy-action@v0.33.1
-        with:
-          image-ref: azure-resilience-control-tower:test
-          format: table
-          scanners: vuln,secret
-          severity: HIGH,CRITICAL
-          exit-code: "1"
-          ignore-unfixed: true
+        run: |
+          trivy image azure-resilience-control-tower:test \
+            --scanners vuln,secret \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --format table \
+            --exit-code 1
 
       - name: Trivy image SARIF
-        uses: aquasecurity/trivy-action@v0.33.1
-        with:
-          image-ref: azure-resilience-control-tower:test
-          format: sarif
-          output: trivy-image.sarif
-          scanners: vuln,secret
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
+        run: |
+          trivy image azure-resilience-control-tower:test \
+            --scanners vuln,secret \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --format sarif \
+            --output trivy-image.sarif
 
       - name: Upload image SARIF
         uses: github/codeql-action/upload-sarif@v3
