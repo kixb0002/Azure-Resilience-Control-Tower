@@ -6,6 +6,10 @@ ENV PORT=8000
 
 WORKDIR /app
 
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    rm -rf /var/lib/apt/lists/*
+
 RUN adduser --disabled-password --gecos "" appuser
 
 COPY requirements.txt .
