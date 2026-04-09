@@ -177,7 +177,7 @@ jobs:
             --severity HIGH,CRITICAL \
             --ignore-unfixed \
             --format sarif \
-            --output azure-resilience-control-tower/app/trivy-image.sarif
+            --output trivy-image.sarif
 
       - name: Upload image SARIF
         uses: github/codeql-action/upload-sarif@v3
