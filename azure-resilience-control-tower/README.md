@@ -8,6 +8,8 @@ Enterprise-style sample project combining:
 - GitHub Actions for CI/CD and DevSecOps controls
 - Python test code with Docker-based delivery
 
+CI/CD validation test
+
 ## Architecture
 
 ```mermaid
@@ -67,7 +69,6 @@ Create these repository or environment secrets:
 
 Create these repository or environment variables:
 
-- `AZURE_LOCATION`
 - `PROJECT_NAME`
 - `ENVIRONMENT_NAME`
 - `RESOURCE_GROUP_NAME`
