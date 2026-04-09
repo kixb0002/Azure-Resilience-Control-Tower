@@ -84,7 +84,7 @@ jobs:
         run: docker push "${{ steps.terraform_outputs.outputs.acr_login_server }}/webapp:${{ github.sha }}"
 
       - name: Generate SBOM with Trivy
-        uses: aquasecurity/trivy-action@v0.33.1
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           image-ref: "${{ steps.terraform_outputs.outputs.acr_login_server }}/webapp:${{ github.sha }}"
           format: cyclonedx
