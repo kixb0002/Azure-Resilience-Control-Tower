@@ -83,12 +83,20 @@ jobs:
       - name: Push container image
         run: docker push "${{ steps.terraform_outputs.outputs.acr_login_server }}/webapp:${{ github.sha }}"
 
+      - name: Install Trivy
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget gnupg lsb-release
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+          echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install -y trivy
+
       - name: Generate SBOM with Trivy
-        uses: aquasecurity/trivy-action@v0.33.1
-        with:
-          image-ref: "${{ steps.terraform_outputs.outputs.acr_login_server }}/webapp:${{ github.sha }}"
-          format: cyclonedx
-          output: trivy-sbom.cdx.json
+        run: |
+          trivy image "${{ steps.terraform_outputs.outputs.acr_login_server }}/webapp:${{ github.sha }}" \
+            --format cyclonedx \
+            --output trivy-sbom.cdx.json
 
       - name: Upload SBOM artifact
         uses: actions/upload-artifact@v4
