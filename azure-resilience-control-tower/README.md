@@ -53,8 +53,9 @@ This project includes:
 - `tflint`, `tfsec`, CodeQL, Bandit, `pip-audit`, and Trivy
 - SBOM generation for the deployed container image
 - Cosign signing, verification, and SBOM attestation for the pushed ACR image
+- post-deployment smoke testing against the application health endpoint
+- Azure Key Vault integration for sensitive runtime configuration
 - Terraform plan workflow for change review
-- production deployment workflow protected by GitHub Environments
 - Dependabot, CODEOWNERS, PR template, and security policy inherited from repo root
 
 Detailed operating guidance lives in `docs/devsecops-cicd.md`.
@@ -69,6 +70,7 @@ Create these repository or environment secrets:
 
 Create these repository or environment variables:
 
+- `AZURE_LOCATION`
 - `PROJECT_NAME`
 - `ENVIRONMENT_NAME`
 - `RESOURCE_GROUP_NAME`

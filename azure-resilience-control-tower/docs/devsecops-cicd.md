@@ -28,29 +28,27 @@ Configure `main` with:
 
 ## Environment Promotion
 
-Recommended GitHub Environments:
+Recommended GitHub Environment:
 
-- `dev`
-- `preprod`
 - `production`
 
 Suggested flow:
 
 - pull request: validate and review Terraform plan
-- merge to `main`: deploy `dev`
-- manual promotion: deploy `preprod`
-- approved production release: deploy `production`
+- merge to `main`: wait for production approval and deploy
 
 ## DevSecOps Controls
 
 - GitHub OIDC to Azure with federated credentials
-- protected GitHub Environments for approvals and secrets
+- protected GitHub Environment for approvals and secrets
 - Terraform state in a dedicated secured storage account
 - CodeQL, Bandit, tfsec, TFLint, Trivy, and dependency scanning in every pull request
 - generate a CycloneDX SBOM for the deployed container image
 - sign and verify container images with Cosign after push to ACR
 - publish SBOM attestation for the pushed image
 - upload Trivy SARIF findings into GitHub code scanning
+- run smoke tests against the deployed `/health` endpoint after release
+- store sensitive runtime settings in Azure Key Vault and consume them via managed identity
 - CODEOWNERS review on `.github/` and `infra/`
 - Dependabot for GitHub Actions, Terraform, and Python dependencies
 
