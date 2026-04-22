@@ -16,9 +16,9 @@ locals {
   project_token = replace(var.project_name, "-", "")
   env_token     = replace(var.environment_name, "-", "")
 
-  plan_name    = "asp-${var.project_name}-${var.environment_name}"
-  web_app_name = "app-${var.project_name}-${var.environment_name}-${random_string.suffix.result}"
-  acr_name     = substr("acr${local.project_token}${local.env_token}${random_string.suffix.result}", 0, 50)
+  plan_name      = "asp-${var.project_name}-${var.environment_name}"
+  web_app_name   = "app-${var.project_name}-${var.environment_name}-${random_string.suffix.result}"
+  acr_name       = substr("acr${local.project_token}${local.env_token}${random_string.suffix.result}", 0, 50)
   key_vault_name = substr("kv${local.project_token}${local.env_token}${random_string.suffix.result}", 0, 24)
 
   tags = {
