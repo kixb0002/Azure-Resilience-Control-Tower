@@ -70,7 +70,7 @@ jobs:
         run: terraform show -no-color tfplan > tfplan.txt
 
       - name: Upload plan artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: azure-resilience-control-tower-tfplan
           path: |

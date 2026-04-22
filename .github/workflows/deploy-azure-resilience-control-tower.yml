@@ -103,7 +103,7 @@ jobs:
             --output trivy-sbom.cdx.json
 
       - name: Upload SBOM artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: azure-resilience-control-tower-sbom-${{ github.sha }}
           path: azure-resilience-control-tower/infra/trivy-sbom.cdx.json
