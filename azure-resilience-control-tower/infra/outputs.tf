@@ -17,3 +17,7 @@ output "web_app_name" {
 output "web_app_url" {
   value = "https://${azurerm_linux_web_app.app.default_hostname}"
 }
+
+output "key_vault_name" {
+  value = azurerm_key_vault.kv.name
+}

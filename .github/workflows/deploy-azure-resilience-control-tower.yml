@@ -1,20 +1,20 @@
 name: Deploy Azure Resilience Control Tower
 
 on:
-  workflow_dispatch:
   push:
     branches:
       - main
     paths:
       - "azure-resilience-control-tower/**"
       - ".github/workflows/deploy-azure-resilience-control-tower.yml"
+  workflow_dispatch:
 
 permissions:
   contents: read
   id-token: write
 
 concurrency:
-  group: deploy-azure-resilience-control-tower-production
+  group: deploy-azure-resilience-control-tower-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -41,6 +41,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Capture runner public IP for Key Vault access
+        run: |
+          echo "TF_VAR_key_vault_allowed_ip=$(curl --fail --silent --show-error https://api.ipify.org)" >> "$GITHUB_ENV"
 
       - name: Azure login
         uses: azure/login@v2
@@ -75,7 +79,7 @@ jobs:
       - name: Build container image
         working-directory: azure-resilience-control-tower/app
         run: |
-          docker build -t "${{ steps.terraform_outputs.outputs.acr_login_server }}/webapp:${{ github.sha }}" .
+          docker build --pull -t "${{ steps.terraform_outputs.outputs.acr_login_server }}/webapp:${{ github.sha }}" .
 
       - name: Log in to ACR
         run: az acr login --name "${{ steps.terraform_outputs.outputs.acr_name }}"
@@ -131,3 +135,21 @@ jobs:
         env:
           TF_VAR_container_image_tag: ${{ github.sha }}
         run: terraform apply -auto-approve -input=false
+
+      - name: Smoke test deployed application
+        run: |
+          WEB_APP_URL=$(terraform output -raw web_app_url)
+
+          for attempt in {1..12}; do
+            echo "Smoke test attempt ${attempt}/12 against ${WEB_APP_URL}/health"
+
+            if curl --fail --silent --show-error "${WEB_APP_URL}/health" | tee smoke-test-response.json; then
+              grep -q '"status":"healthy"' smoke-test-response.json
+              exit 0
+            fi
+
+            sleep 10
+          done
+
+          echo "Smoke test failed after multiple attempts." >&2
+          exit 1

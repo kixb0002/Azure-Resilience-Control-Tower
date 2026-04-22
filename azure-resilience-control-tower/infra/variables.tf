@@ -53,3 +53,17 @@ variable "container_image_tag" {
     error_message = "container_image_tag must not be empty."
   }
 }
+
+variable "key_vault_allowed_ip" {
+  type        = string
+  description = "Public IPv4 address temporarily allowed to reach the Key Vault data plane during Terraform runs."
+  default     = ""
+
+  validation {
+    condition = (
+      var.key_vault_allowed_ip == "" ||
+      can(regex("^([0-9]{1,3}\\.){3}[0-9]{1,3}$", var.key_vault_allowed_ip))
+    )
+    error_message = "key_vault_allowed_ip must be empty or a valid IPv4 address."
+  }
+}
