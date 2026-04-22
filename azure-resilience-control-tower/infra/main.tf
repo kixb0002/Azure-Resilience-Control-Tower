@@ -57,10 +57,16 @@ resource "azurerm_key_vault" "kv" {
   tenant_id                     = data.azurerm_client_config.current.tenant_id
   sku_name                      = "standard"
   enable_rbac_authorization     = false
-  purge_protection_enabled      = false
+  purge_protection_enabled      = true
   soft_delete_retention_days    = 7
   public_network_access_enabled = true
   tags                          = local.tags
+
+  network_acls {
+    bypass         = "AzureServices"
+    default_action = "Deny"
+    ip_rules       = var.key_vault_allowed_ip == "" ? [] : [var.key_vault_allowed_ip]
+  }
 }
 
 resource "azurerm_key_vault_access_policy" "deployer" {
@@ -79,9 +85,11 @@ resource "azurerm_key_vault_access_policy" "deployer" {
 }
 
 resource "azurerm_key_vault_secret" "appi_connection_string" {
-  name         = "applicationinsights-connection-string"
-  value        = azurerm_application_insights.appi.connection_string
-  key_vault_id = azurerm_key_vault.kv.id
+  name            = "applicationinsights-connection-string"
+  value           = azurerm_application_insights.appi.connection_string
+  content_type    = "text/plain"
+  expiration_date = "2030-01-01T00:00:00Z"
+  key_vault_id    = azurerm_key_vault.kv.id
 
   depends_on = [azurerm_key_vault_access_policy.deployer]
 }
